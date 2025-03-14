@@ -3,12 +3,14 @@
 #include <random>
 #include <vector>
 
+const float PI = 3.14159265359f;
+
 typedef struct Square {
   sf::RectangleShape back;
   size_t number;
   bool selected;
   bool flagged;
-  size_t minesAround;
+  sf::Text minesAround;
 } Square;
 
 const unsigned int size = 576;
@@ -20,15 +22,38 @@ bool gameOver;
 const size_t mine_proportion = 9;
 std::random_device rd;
 std::mt19937 gen(rd());
-std::uniform_int_distribution<> randNum(0, mine_proportion);
+std::uniform_int_distribution<> randNum(0, mine_proportion - 1);
 
-void reset(std::vector<std::vector<Square>> &list) {
+void set_number(Square &sqr, size_t &i, size_t &j, int &num, sf::Font &font) {
+  sqr.minesAround.setFont(font);
+  sqr.minesAround.setFillColor(sf::Color::Yellow);
+  sqr.minesAround.setCharacterSize(32);
+  sqr.minesAround.setPosition(
+      sf::Vector2f(rectangleSize * i + rectangleSize * 2.f / 5.f,
+                   rectangleSize * j + rectangleSize / 5.f));
+  sqr.minesAround.setString(std::to_string(num));
+}
+
+void reset(std::vector<std::vector<Square>> &list, sf::Font &font) {
   gameOver = false;
   for (auto &aux : list) {
     for (auto &sqr : aux) {
       sqr.number = randNum(gen);
       sqr.selected = false;
       sqr.flagged = false;
+    }
+  }
+  for (size_t i = 0; i < 9; ++i) {
+    for (size_t j = 0; j < 9; ++j) {
+      int num = 0;
+      for (size_t k = 0; k < 8; ++k) {
+        int x = rint(cos(k * PI / 4)) + i;
+        int y = rint(sin(k * PI / 4)) + j;
+        if (x >= 0 && x < 9 && y >= 0 && y < 9 && list.at(x).at(y).number == 0)
+          ++num;
+      }
+      if (num > 0)
+        set_number(list.at(i).at(j), i, j, num, font);
     }
   }
 }
@@ -43,20 +68,32 @@ void get_text(sf::Text &text, sf::Font &font, std::string str) {
 
 void display(sf::RenderWindow &window, std::vector<std::vector<Square>> &list,
              sf::Font &font) {
-  sf::Text text;
+  bool win = true;
   window.clear();
   for (size_t i = 0; i < 9; ++i) {
     for (size_t j = 0; j < 9; ++j) {
       Square aux = list.at(i).at(j);
       if (!aux.selected) {
-        aux.back.setFillColor(aux.flagged ? sf::Color::Red : sf::Color::Green);
+        aux.back.setFillColor(aux.flagged ? sf::Color::Blue : sf::Color::Green);
         window.draw(aux.back);
-      } else if (aux.number == 0)
+        if (aux.number != 0)
+          win = false;
+      } else if (aux.number == 0) {
         gameOver = true;
+        win = false;
+        aux.back.setFillColor(sf::Color::Red);
+        window.draw(aux.back);
+      } else
+        window.draw(aux.minesAround);
     }
   }
+  sf::Text text;
   if (gameOver)
     get_text(text, font, "Game over!");
+  if (win) {
+    gameOver = true;
+    get_text(text, font, "You win!");
+  }
   window.draw(text);
   window.display();
 }
@@ -81,6 +118,12 @@ void mouse_event(sf::RenderWindow &window,
 int main() {
   sf::RenderWindow window(sf::VideoMode({size, size}), "Minesweeper");
 
+  sf::Font font;
+  if (!font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")) {
+    std::cout << "Error: cannot load font!" << '\n';
+    return 1;
+  }
+
   std::vector<std::vector<Square>> list;
   for (size_t i = 0; i < 9; ++i) {
     std::vector<Square> aux;
@@ -97,13 +140,7 @@ int main() {
     list.push_back(aux);
   }
 
-  reset(list);
-
-  sf::Font font;
-  if (!font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")) {
-    std::cout << "Error: cannot load font!" << '\n';
-    return 1;
-  }
+  reset(list, font);
 
   while (window.isOpen()) {
     sf::Event event;
@@ -114,7 +151,7 @@ int main() {
         mouse_event(window, list, font, event);
       if (event.type == sf::Event::KeyPressed &&
           event.key.scancode == sf::Keyboard::Scancode::R)
-        reset(list);
+        reset(list, font);
     }
 
     if (gameOver) {
