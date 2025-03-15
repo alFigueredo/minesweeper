@@ -11,7 +11,6 @@ typedef struct Square {
   bool selected;
   bool flagged;
   sf::Text minesAround;
-  size_t nMines;
 } Square;
 
 const unsigned int size = 576;
@@ -26,7 +25,6 @@ std::mt19937 gen(rd());
 std::uniform_int_distribution<> randNum(0, mine_proportion - 1);
 
 void set_number(Square &sqr, size_t &i, size_t &j, int &num, sf::Font &font) {
-  sqr.nMines = num;
   sqr.minesAround.setFont(font);
   sqr.minesAround.setFillColor(sf::Color::Yellow);
   sqr.minesAround.setCharacterSize(32);
@@ -43,7 +41,6 @@ void reset(std::vector<std::vector<Square>> &list, sf::Font &font) {
       sqr.number = randNum(gen);
       sqr.selected = false;
       sqr.flagged = false;
-      sqr.nMines = 0;
       sqr.minesAround.setString("");
     }
   }
@@ -56,7 +53,6 @@ void reset(std::vector<std::vector<Square>> &list, sf::Font &font) {
         if (x >= 0 && x < 9 && y >= 0 && y < 9 && list.at(x).at(y).number == 0)
           ++num;
       }
-      list.at(i).at(j).nMines = num;
       if (num > 0)
         set_number(list.at(i).at(j), i, j, num, font);
     }
@@ -106,11 +102,10 @@ void display(sf::RenderWindow &window, std::vector<std::vector<Square>> &list,
 void select_square(std::vector<std::vector<Square>> &list, int &i, int &j) {
   Square *sqr = &list.at(i).at(j);
   sqr->selected = true;
-  if (sqr->number != 0 && sqr->nMines == 0) {
+  if (sqr->number != 0 && sqr->minesAround.getString().isEmpty()) {
     for (size_t k = 0; k < 8; ++k) {
       int x = rint(cos(k * PI / 4)) + i;
       int y = rint(sin(k * PI / 4)) + j;
-      std::cout << "[DEBUG] x: " << x << ", y: " << y << "\n";
       if (x >= 0 && x < 9 && y >= 0 && y < 9 && !list.at(x).at(y).selected)
         select_square(list, x, y);
     }
